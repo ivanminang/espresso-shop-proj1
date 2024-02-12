@@ -1,0 +1,186 @@
+---
+# Source: shop-reviews-1/templates/pdb-1.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: s7ivan-espresso-reviews-1-pdb
+  labels:
+    app: s7ivan-espresso-reviews 
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: s7ivan-espresso-reviews
+---
+# Source: shop-reviews-1/templates/pdb-2.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: s7ivan-espresso-reviews-2-pdb
+  labels:
+    app: s7ivan-espresso-reviews 
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: s7ivan-espresso-reviews
+---
+# Source: shop-reviews-1/templates/serviceaccount-1.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: espresso-reviews-1-sa
+  labels:
+    app: s7ivan-espresso-reviews
+---
+# Source: shop-reviews-1/templates/serviceaccount-2.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: espresso-reviews-2-sa
+  labels:
+    app: s7ivan-espresso-reviews
+---
+# Source: shop-reviews-1/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: espresso-shop-reviews-svc
+  labels:
+    app: s7ivan-espresso-reviews
+spec:
+  type: NodePort
+  ports:
+    - port: 8092
+      targetPort: 
+      protocol: TCP
+      name: espresso-shop-reviews-svc
+  selector:
+    version: v1
+    version: v2
+---
+# Source: shop-reviews-1/templates/deployment-1.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s7ivan-espresso-reviews-1
+  labels:
+    app: s7ivan-espresso-reviews
+    version: v1
+spec:
+  strategy:
+            rollingUpdate:
+              maxSurge: 2
+              maxUnavailable: 1
+            type: RollingUpdate
+  selector:
+    matchLabels:
+      version: v1
+      app: s7ivan-espresso-reviews
+  template:
+    metadata:
+      labels:
+        version: v1
+        app: s7ivan-espresso-reviews
+    spec:
+      serviceAccountName: espresso-reviews-1-sa
+      containers:
+        - name: s7ivan-espresso-reviews-1
+          image: "devopseasylearning/s7ivan-espresso-reviews:v1.0.0"
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+---
+# Source: shop-reviews-1/templates/deployment-2.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s7ivan-espresso-reviews-2
+  labels:
+    app: s7ivan-espresso-reviews
+    version: v2
+spec:
+  strategy:
+            rollingUpdate:
+              maxSurge: 2
+              maxUnavailable: 1
+            type: RollingUpdate
+  selector:
+    matchLabels:
+      version: v2
+      app: s7ivan-espresso-reviews
+  template:
+    metadata:
+      labels:
+        version: v2
+        app: s7ivan-espresso-reviews
+    spec:
+      serviceAccountName: espresso-reviews-2-sa
+      containers:
+        - name: s7ivan-espresso-reviews-2
+          image: "devopseasylearning/s7ivan-espresso-reviews:v1.0.0"
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+---
+# Source: shop-reviews-1/templates/hpa-1.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: espresso-reviews-1-hpa
+  labels:
+    app: s7ivan-espresso-reviews
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: s7ivan-espresso-reviews-1
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+# Source: shop-reviews-1/templates/hpa-2.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: espresso-reviews-2-hpa
+  labels:
+    app: s7ivan-espresso-reviews
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: s7ivan-espresso-reviews-2
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

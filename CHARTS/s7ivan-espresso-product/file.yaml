@@ -1,0 +1,102 @@
+---
+# Source: shop-product/templates/pdb.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: s7ivan-espresso-product-pdb
+  labels:
+    app: s7ivan-espresso-product 
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: s7ivan-espresso-product
+---
+# Source: shop-product/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: espresso-product-sa
+  labels:
+    app: s7ivan-espresso-product
+---
+# Source: shop-product/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: espresso-shop-product-catalog-svc
+  labels:
+    app: s7ivan-espresso-product
+spec:
+  type: NodePort
+  ports:
+    - port: 8091
+      targetPort: 
+      protocol: TCP
+      name: espresso-shop-product-catalog-svc
+  selector:
+    app: s7ivan-espresso-product
+    version: v1
+---
+# Source: shop-product/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s7ivan-espresso-product
+  labels:
+    app: s7ivan-espresso-product
+    version: v1
+spec:
+  strategy:
+            rollingUpdate:
+              maxSurge: 2
+              maxUnavailable: 1
+            type: RollingUpdate
+  selector:
+    matchLabels:
+      version: v1
+      app: s7ivan-espresso-product
+  template:
+    metadata:
+      labels:
+        version: v1
+        app: s7ivan-espresso-product
+    spec:
+      serviceAccountName: espresso-product-sa
+      containers:
+        - name: s7ivan-espresso-product
+          image: "devopseasylearning/s7ivan-espresso-productcatalog:v1.0.0"
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+---
+# Source: shop-product/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: espresso-web-hpa
+  labels:
+    app: s7ivan-espresso-product
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: s7ivan-espresso-product
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

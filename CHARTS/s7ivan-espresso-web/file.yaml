@@ -1,0 +1,132 @@
+---
+# Source: shop-web/templates/pdb.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: s7ivan-espresso-web-pdb
+  labels:
+    app: s7ivan-espresso-web 
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: s7ivan-espresso-web
+---
+# Source: shop-web/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: espresso-web-sa
+  labels:
+    app: s7ivan-espresso-web
+---
+# Source: shop-web/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: espresso-shop-secret 
+  # namespace: s7ivan , I am not creating this namespace becaise helm will create one forme 
+  labels:
+    app: s7ivan-espresso-web
+
+type: Opaque
+data:
+  password: ZGV2b3BzZWFzeWxlYXJuaW5nOmRja3JfcGF0X2VfbjIxNF9BNl9mWDFwOHE5bk5GbXNJUWt2QQ==
+---
+# Source: shop-web/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: espresso-web-cm
+  labels:
+    app: s7ivan-espresso-web 
+data:
+    ProductCatalogUrl: "http://espresso-shop-product-catalog-svc:8091"
+    ReviewsUrl: "http://espresso-shop-reviews-svc:8092"
+---
+# Source: shop-web/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: espresso-shop-web-svc
+  labels:
+    app: s7ivan-espresso-web
+spec:
+  type: NodePort
+  ports:
+    - port: 8090
+      targetPort: 
+      protocol: TCP
+      name: espresso-shop-web-svc
+  selector:
+    app: s7ivan-espresso-web
+    version: v1
+---
+# Source: shop-web/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s7ivan-espresso-web
+  labels:
+    app: s7ivan-espresso-web
+    version: v1
+spec:
+  strategy:
+            rollingUpdate:
+              maxSurge: 2
+              maxUnavailable: 1
+            type: RollingUpdate
+  selector:
+    matchLabels:
+      version: v1
+      app: s7ivan-espresso-web
+  template:
+    metadata:
+      labels:
+        version: v1
+        app: s7ivan-espresso-web
+    spec:
+      serviceAccountName: espresso-web-sa
+      containers:
+        - name: s7ivan-espresso-web
+          image: "devopseasylearning/s7ivan-espresso-web:v1.0.0"
+          imagePullPolicy: Always
+
+          envFrom:
+          - secretRef:
+               name: espresso-shop-secret
+          - configMapRef:
+               name: espresso-web-cm
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+---
+# Source: shop-web/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: espresso-web-hpa
+  labels:
+    app: s7ivan-espresso-web
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: s7ivan-espresso-web
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
